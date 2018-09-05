@@ -3,9 +3,9 @@ title: "Machine Learning - Weight Exercise"
 author: "Tim Kerins"
 date: "September 4, 2018"
 output:
-  html_document: default
-  word_document: default
   pdf_document: default
+  word_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
