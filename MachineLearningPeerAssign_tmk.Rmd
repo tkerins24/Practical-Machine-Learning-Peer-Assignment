@@ -1,0 +1,159 @@
+---
+title: "Machine Learning - Weight Exercise"
+author: "Tim Kerins"
+date: "September 4, 2018"
+output:
+  html_document: default
+  word_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+##Executive Summary
+The purpose of this weightlifting exercise is to determine if we can accurately distinguish between 5 different classes of correctly and incorrectly performing a unilateral biceps curl by using accelerometers on the body and the dumbbell. Six subjects were used to perform ten repetitions each.
+
++ Class A: Correctly
++ Class B: Throwing Elbows in front
++ Class C: Lifting only half way
++ Class D: Lowering only half way
++ Class E: Throwing Hips in front
+
+The resulting data set was cleansed and divided into training and validation sets and applied to a random forest model. The accuracies were determined and variable importance's examined. Finally, a 20 observation test data set was then applied to the model and the resulting predictions were entered into machine learning quiz #4 to compare the results. 
+
+##Summary of Conclusions
+After data cleansing there were 53 variables including the "classe" variable that were put into the random forest model. The "classe" variable was the output variable with the other 52 being the predictor variables.
+Running the training set produced an error rate of 0.43% which implies an accuracy of 99.57%.
+Running the validating set to cross validate the model produced an accuracy of 99.47%. This out of sample accuracy was only slightly less than the training accuracy, which is to be expected.
+An analysis of variable importance showed the top 8 contributors to be
+magnet_dumbbell_x,
+roll_forearm,
+magnet_dumbbell_y,
+pitch_belt,
+magnet_dumbbell_z,
+pitch_forearm,
+yaw_belt, and
+roll_belt.
+
+
+The test data was then loaded into the model. The resulting predictions were input into Quiz #4 and matched the answers expected.
+
+##Exploratory Data Analysis and Cleansing
+
+####Load Libraries
+```{r message=FALSE, warning=FALSE, echo = TRUE}
+library(caret)
+library(randomForest)
+library(dplyr)
+library(tidyr)
+```
+####Download Data
+```{r}
+url <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+destfile <- "train.csv"
+download.file(url, destfile)
+train <- read.csv(destfile,na.strings=c("NA","#DIV/0!",""," "))
+url <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+destfile <- "test.csv"
+download.file(url, destfile)
+test <- read.csv(destfile,na.strings=c("NA","#DIV/0!",""," "))
+```
+####Cleanse Data
+Remove columns with NA values
+```{r}
+train1 <- train %>% select_if(~ !any(is.na(.)))
+test1 <- test %>% select_if(~ !any(is.na(.)))
+```
+
+Investigate the dimensions and data structure of the cleaned train and test data sets and then remove columns not needed for the model. (See the appendix for the details of the dimensions and structures and rationale for removing the columns below).
+```{r}
+train2 <- select(train1,-X,-user_name,-raw_timestamp_part_1, -raw_timestamp_part_2,
+                 -cvtd_timestamp,-new_window, -num_window)
+test2 <- select(test1,-problem_id,-X,-user_name,-raw_timestamp_part_1, 
+                -raw_timestamp_part_2,
+                -cvtd_timestamp,-new_window, -num_window)
+```
+Determine the dimensions of the data sets to be modeled
+```{r echo = TRUE}
+dim(train2);dim(test2)
+```
+52 predictor variables will be modeled. The output of the model will be the "classe"" variable
+
+## Build Model
+### Split data into training and validating sets
+```{r}
+set.seed(20)
+inTrain = createDataPartition(y = train2$classe, p = .75)[[1]]
+training = train2[inTrain,]
+validating = train2[-inTrain,]
+```
+### Build and train a random forest model
+```{r}
+set.seed(20)
+rfMod <- randomForest(classe~.,data = training)
+rfMod
+```
+Running the training set produced an OOB error rate of 0.43% which implies an accuracy of 99.57%.
+
+### Cross Validate the model with the validating data set (See appendix for plot of Variable Importance)
+```{R}
+#Test the model on the validation dataset.
+pred <- predict(rfMod,newdata=validating)
+confusionMatrix(pred,validating$classe)
+
+```
+Running the validating set to cross validate the model produced an accuracy of 99.47%. This out of sample accuracy was only slightly less than the training accuracy, which is to be expected.
+
+###Determine Variable Importance. (see appendix for the Variable Importance Plot)
+From the chart in the appendix we can see that the top 8 contributors to importance are 
+magnet_dumbbell_x,
+roll_forearm,
+magnet_dumbbell_y,
+pitch_belt,
+magnet_dumbbell_z,
+pitch_forearm,
+yaw_belt, and
+roll_belt.
+
+### Run the model using the test dataset
+```{r}
+# Predict Classes using test data
+test_pred <- predict(rfMod, newdata = test2)
+test_pred
+```
+These resulting predictions were input into Quiz #4 and were validated to be correct.
+
+##Appendix
+
+### Evaluate the dimensions and structure of the train dataset after NAs are removed
+```{r}
+str(train1)
+```
+There are 19,622 observations of 60 variables. "class"" is the output variable. The first 7 variables are indexes or names or summary variables that are not needed for the model so these were removed as shown in the data cleansing section of this document.
+
+###Evaluate the dimensions and structure of the test data set after NAs are removed.
+```{r echo = TRUE}
+dim(test1)
+```
+There are 20 observations of 60 variables. An analysis of the structure (not shown here for brevity) shows the variables are identical to the train set except that "classe"" is not present and "problem_id"" is an extra variable that is not in the train data set. The first seven columns are identical to the train set and we'll remove these as we did for the training set and also remove "problem_id"
+
+The resulting dimensions that will be input to the model are as follows. Note that train2 includes the the output variable "classe"):
+```{r echo = FALSE}
+dim(train2);dim(test2)
+```
+
+###Plot Variable Importance
+```{r fig.height=6.0,fig.width=8.0}
+varImpPlot(rfMod)
+```
+
+
+###Citations
+The data for this project come from this source: http://groupware.les.inf.puc-rio.br/har.
+Velloso, E.; Bulling, A.; Gellersen, H.; Ugulino, W.; Fuks, H. Qualitative Activity Recognition of Weight Lifting Exercises. Proceedings of 4th International Conference in Cooperation with SIGCHI (Augmented Human '13) . Stuttgart, Germany: ACM SIGCHI, 2013.
+
+
+
+
